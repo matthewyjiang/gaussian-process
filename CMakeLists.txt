@@ -16,10 +16,22 @@ add_library(gp_lib STATIC ${SOURCES} ${HEADERS})
 target_include_directories(gp_lib PUBLIC include)
 target_link_libraries(gp_lib PUBLIC Eigen3::Eigen)
 
-# Test executable
-add_executable(gp_test test/test_gp.cpp)
-target_link_libraries(gp_test gp_lib)
+# Define test files and their corresponding executables
+set(TESTS
+    "test_gp:gp_test"
+    "test_sine_rbf:test_sine_rbf"
+    "test_quadratic_rbf:test_quadratic_rbf"
+    "test_exponential_rbf:test_exponential_rbf"
+    "test_logarithmic_rbf:test_logarithmic_rbf"
+    "test_gaussian_rbf:test_gaussian_rbf"
+)
 
-# Sine RBF test executable
-add_executable(test_sine_rbf test/test_sine_rbf.cpp)
-target_link_libraries(test_sine_rbf gp_lib)
+# Create test executables
+foreach(TEST_PAIR ${TESTS})
+    string(REPLACE ":" ";" TEST_LIST ${TEST_PAIR})
+    list(GET TEST_LIST 0 TEST_FILE)
+    list(GET TEST_LIST 1 TEST_EXECUTABLE)
+    
+    add_executable(${TEST_EXECUTABLE} test/${TEST_FILE}.cpp)
+    target_link_libraries(${TEST_EXECUTABLE} gp_lib)
+endforeach()
