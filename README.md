@@ -40,10 +40,10 @@ int main() {
     X_test << 1.5, 2.5;
 
     // Create RBF kernel with length scale = 1.0 and variance = 1.0
-    std::unique_ptr<RBFKernel> kernel(new RBFKernel(1.0, 1.0));
+    std::unique_ptr<gp::RBFKernel> kernel(new gp::RBFKernel(1.0, 1.0));
 
     // Initialize Gaussian Process with the kernel and noise level = 1e-6
-    GaussianProcess gp(std::move(kernel), 1e-6);
+    gp::GaussianProcess gp(std::move(kernel), 1e-6);
 
     // Fit the model to the training data
     gp.fit(X_train, y_train);
