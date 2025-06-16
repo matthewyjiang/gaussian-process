@@ -59,7 +59,7 @@ void GaussianProcess::add_data_points(const Eigen::MatrixXd& X_new, const Eigen:
   }
 
   if (X_new.rows() != y_new.size()) {
-    throw std::invalid_argument("X_new and Y_new must have the same number of rows");
+    throw std::invalid_argument("X_new and y_new must have the same number of rows");
   }
 
   const int n = X_train_.rows();
