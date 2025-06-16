@@ -4,17 +4,26 @@ project(gaussian-process VERSION 0.1.0 LANGUAGES CXX)
 # C++11 standard
 set(CMAKE_CXX_STANDARD 11)
 
-# Find Eigen3
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 # Source files
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 file(GLOB_RECURSE HEADERS "include/*.h")
 
+# Get Eigen 3.3.7
+FetchContent_Declare(
+  eigen
+  GIT_REPOSITORY https://github.com/eigenteam/eigen-git-mirror
+  GIT_TAG        cf794d3b741a6278df169e58461f8529f43bce5d
+)
+FetchContent_GetProperties(eigen)
+if(NOT eigen_POPULATED)
+  FetchContent_Populate(eigen)
+  include_directories(${eigen_SOURCE_DIR})
+endif()
+
 # Create library
 add_library(gp_lib STATIC ${SOURCES} ${HEADERS})
-target_include_directories(gp_lib PUBLIC include)
-target_link_libraries(gp_lib PUBLIC Eigen3::Eigen)
+target_include_directories(gp_lib PUBLIC include ${eigen_SOURCE_DIR})
 
 # Define test files and their corresponding executables
 set(TESTS
