@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD 11)
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 file(GLOB_RECURSE HEADERS "include/*.h")
 
+include(FetchContent)
+
 # Get Eigen 3.3.7
 FetchContent_Declare(
   eigen
