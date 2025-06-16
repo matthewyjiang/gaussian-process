@@ -1,5 +1,4 @@
 #include "gaussian_process.h"
-#include <exception>
 #include <stdexcept>
 #include <cmath>
 #include <iostream>
@@ -61,6 +60,9 @@ void GaussianProcess::add_data_points(const Eigen::MatrixXd& X_new, const Eigen:
   if (X_new.rows() != y_new.size()) {
     throw std::invalid_argument("X_new and y_new must have the same number of rows");
   }
+
+  if (X_new.cols() != X_train_.cols()) {
+    throw std::invalid_argument("X_new and X_train must have same number of cols");
 
   const int n = X_train_.rows();
   const int m = X_new.rows();
