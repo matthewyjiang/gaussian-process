@@ -17,11 +17,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/eigenteam/eigen-git-mirror
   GIT_TAG        cf794d3b741a6278df169e58461f8529f43bce5d
 )
-FetchContent_GetProperties(eigen)
-if(NOT eigen_POPULATED)
-  FetchContent_MakeAvailable(eigen)
-  include_directories(${eigen_SOURCE_DIR})
-endif()
+FetchContent_MakeAvailable(eigen)
 
 # Create library
 add_library(gp_lib STATIC ${SOURCES} ${HEADERS})
