@@ -28,6 +28,55 @@ void GaussianProcess::fit(const Eigen::MatrixXd &X, const Eigen::VectorXd &y) {
   is_fitted_ = true;
 }
 
+void GaussianProcess::add_data_point(const Eigen::VectorXd& X_new, const double y_new) {
+  if (!is_fitted_) {
+    X_train_ = X_new.transpose();
+    y_train_ = Eigen::VectorXd(1);
+    y_train_(0) = y_new;
+    fit(X_train_, y_train_);
+    return;
+  }
+
+  if (X_new.size() != X_train_.cols()) {
+      throw std::invalid_argument("New point must have same dimensionality as training data");
+  }
+
+  const int n = X_train_.rows();
+  X_train_.conservativeResize(n + 1, Eigen::NoChange);
+  X_train_.row(n) = X_new.transpose();
+
+  y_train_.conservativeResize(n + 1);
+  y_train_(n) = y_new;
+
+  compute_alpha();
+}
+
+void GaussianProcess::add_data_points(const Eigen::MatrixXd& X_new, const Eigen::VectorXd& y_new) {
+  if (!is_fitted_) {
+    fit(X_new, y_new);
+    return;
+  }
+
+  if (X_new.rows() != y_new.size()) {
+    throw std::invalid_argument("X_new and y_new must have the same number of rows");
+  }
+
+  if (X_new.cols() != X_train_.cols()) {
+    throw std::invalid_argument("X_new and X_train must have same number of cols");
+
+  const int n = X_train_.rows();
+  const int m = X_new.rows();
+  X_train_.conservativeResize(n + m, Eigen::NoChange);
+  X_train_.bottomRows(m) = X_new;
+  
+
+  y_train_.conservativeResize(n + m);
+  y_train_.tail(m) = y_new;
+
+  compute_alpha();
+
+}
+
 void GaussianProcess::compute_alpha() {
   const int n = X_train_.rows();
   

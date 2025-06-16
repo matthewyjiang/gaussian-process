@@ -27,6 +27,8 @@ public:
 
   // Fit the GP to training data
   void fit(const Eigen::MatrixXd &X, const Eigen::VectorXd &y);
+  void add_data_point(const Eigen::VectorXd &X_new, const double y_new);
+  void add_data_points(const Eigen::MatrixXd &X_new, const Eigen::VectorXd &y_new);
 
   // Make predictions
   std::pair<Eigen::VectorXd, Eigen::VectorXd>
