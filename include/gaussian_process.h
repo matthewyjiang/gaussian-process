@@ -19,7 +19,10 @@ private:
 
   // Helper methods
   void compute_alpha();
+  void update_alpha_incremental(const Eigen::VectorXd& x_new, double y_new);
+  void update_alpha_batch(const Eigen::MatrixXd& X_new, const Eigen::VectorXd& y_new);
   double compute_log_determinant(const Eigen::MatrixXd &K) const;
+  void validate_new_data(const Eigen::MatrixXd& X_new, const Eigen::VectorXd& y_new) const;
 
 public:
   explicit GaussianProcess(std::unique_ptr<KernelBase> kernel,

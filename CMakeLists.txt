@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
-project(gaussian-process VERSION 0.2.0 LANGUAGES CXX)
+project(gaussian-process VERSION 0.2.1 LANGUAGES CXX)
 
 # C++11 standard
 set(CMAKE_CXX_STANDARD 11)
@@ -31,7 +31,10 @@ set(TESTS
     "test_exponential_rbf:test_exponential_rbf"
     "test_logarithmic_rbf:test_logarithmic_rbf"
     "test_gaussian_rbf:test_gaussian_rbf"
+    "test_add_data:test_add_data"
+    "test_incremental_learning:test_incremental_learning"
 )
+
 
 # Create test executables
 foreach(TEST_PAIR ${TESTS})
