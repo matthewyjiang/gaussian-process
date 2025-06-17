@@ -24,7 +24,9 @@ set(TESTS
     "test_exponential_rbf:test_exponential_rbf"
     "test_logarithmic_rbf:test_logarithmic_rbf"
     "test_gaussian_rbf:test_gaussian_rbf"
+    "test_add_data:test_add_data"
 )
+
 
 # Create test executables
 foreach(TEST_PAIR ${TESTS})

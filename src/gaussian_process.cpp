@@ -29,17 +29,16 @@ void GaussianProcess::fit(const Eigen::MatrixXd &X, const Eigen::VectorXd &y) {
 }
 
 void GaussianProcess::add_data_point(const Eigen::VectorXd& X_new, const double y_new) {
+  Eigen::MatrixXd X_matrix = X_new.transpose();
+  Eigen::VectorXd y_vector(1);
+  y_vector(0) = y_new;
+  
   if (!is_fitted_) {
-    X_train_ = X_new.transpose();
-    y_train_ = Eigen::VectorXd(1);
-    y_train_(0) = y_new;
-    fit(X_train_, y_train_);
+    fit(X_matrix, y_vector);
     return;
   }
 
-  if (X_new.size() != X_train_.cols()) {
-      throw std::invalid_argument("New point must have same dimensionality as training data");
-  }
+  validate_new_data(X_matrix, y_vector);
 
   const int n = X_train_.rows();
   X_train_.conservativeResize(n + 1, Eigen::NoChange);
@@ -48,7 +47,7 @@ void GaussianProcess::add_data_point(const Eigen::VectorXd& X_new, const double 
   y_train_.conservativeResize(n + 1);
   y_train_(n) = y_new;
 
-  compute_alpha();
+  update_alpha_incremental(X_new, y_new);
 }
 
 void GaussianProcess::add_data_points(const Eigen::MatrixXd& X_new, const Eigen::VectorXd& y_new) {
@@ -62,19 +61,18 @@ void GaussianProcess::add_data_points(const Eigen::MatrixXd& X_new, const Eigen:
   }
 
   if (X_new.cols() != X_train_.cols()) {
-    throw std::invalid_argument("X_new and X_train must have same number of cols");
+    throw std::invalid_argument("X_new and X_train must have same number of columns");
+  }
 
   const int n = X_train_.rows();
   const int m = X_new.rows();
   X_train_.conservativeResize(n + m, Eigen::NoChange);
   X_train_.bottomRows(m) = X_new;
-  
 
   y_train_.conservativeResize(n + m);
   y_train_.tail(m) = y_new;
 
-  compute_alpha();
-
+  update_alpha_batch(X_new, y_new);
 }
 
 void GaussianProcess::compute_alpha() {
@@ -177,6 +175,114 @@ double GaussianProcess::compute_log_determinant(const Eigen::MatrixXd &K) const 
   }
   Eigen::MatrixXd L = llt.matrixL();
   return 2.0 * L.diagonal().array().log().sum();
+}
+
+void GaussianProcess::update_alpha_incremental(const Eigen::VectorXd& x_new, double y_new) {
+  const int n = X_train_.rows() - 1; // Size before adding new point
+  
+  // Compute cross-covariance between new point and existing points
+  Eigen::MatrixXd X_old = X_train_.topRows(n);
+  Eigen::VectorXd k_star = kernel_->compute(X_old, x_new.transpose());
+  
+  // Compute variance of new point
+  Eigen::MatrixXd x_new_matrix = x_new.transpose();
+  double k_star_star = kernel_->compute(x_new_matrix, x_new_matrix)(0, 0) + noise_variance_;
+  
+  // Sherman-Morrison formula for inverse update
+  // K_inv_new = [K_inv + (K_inv * k * k^T * K_inv) / (k_star_star - k^T * K_inv * k), -K_inv * k / c]
+  //             [-k^T * K_inv / c,                                                    1 / c]
+  // where c = k_star_star - k^T * K_inv * k
+  
+  Eigen::VectorXd K_inv_k = K_inv_ * k_star;
+  double c = k_star_star - k_star.transpose() * K_inv_k;
+  
+  if (std::abs(c) < 1e-12) {
+    // Fallback to full recomputation if numerically unstable
+    compute_alpha();
+    return;
+  }
+  
+  // Update K_inv using block matrix formula
+  Eigen::MatrixXd K_inv_new(n + 1, n + 1);
+  K_inv_new.topLeftCorner(n, n) = K_inv_ + (K_inv_k * K_inv_k.transpose()) / c;
+  K_inv_new.topRightCorner(n, 1) = -K_inv_k / c;
+  K_inv_new.bottomLeftCorner(1, n) = -K_inv_k.transpose() / c;
+  K_inv_new(n, n) = 1.0 / c;
+  
+  K_inv_ = K_inv_new;
+  
+  // Update alpha incrementally
+  // alpha_new = K_inv_new * y_train_
+  alpha_ = K_inv_ * y_train_;
+}
+
+void GaussianProcess::update_alpha_batch(const Eigen::MatrixXd& X_new, const Eigen::VectorXd& y_new) {
+  // For batch updates, use block matrix inversion formula
+  // This is more efficient than repeated Sherman-Morrison updates
+  const int n = X_train_.rows() - X_new.rows(); // Original size
+  const int m = X_new.rows(); // Number of new points
+  
+  if (m == 1) {
+    // Use single point method for efficiency
+    update_alpha_incremental(X_new.row(0).transpose(), y_new(0));
+    return;
+  }
+  
+  // For larger batches, fall back to full recomputation
+  // Block matrix updates become complex and may not provide significant speedup
+  // for small to medium sized batches due to overhead
+  if (m > n / 4) {
+    compute_alpha();
+    return;
+  }
+  
+  // Compute cross-covariances
+  Eigen::MatrixXd X_old = X_train_.topRows(n);
+  Eigen::MatrixXd K_star = kernel_->compute(X_old, X_new);
+  Eigen::MatrixXd K_star_star = kernel_->compute(X_new);
+  K_star_star.diagonal().array() += noise_variance_;
+  
+  // Block matrix inversion using Schur complement
+  // [A  B]^-1 = [A^-1 + A^-1*B*S^-1*B^T*A^-1,  -A^-1*B*S^-1]
+  // [B^T C]     [-S^-1*B^T*A^-1,                 S^-1      ]
+  // where S = C - B^T*A^-1*B (Schur complement)
+  
+  Eigen::MatrixXd K_inv_k_star = K_inv_ * K_star;
+  Eigen::MatrixXd S = K_star_star - K_star.transpose() * K_inv_k_star;
+  
+  // Check if Schur complement is well-conditioned
+  Eigen::LLT<Eigen::MatrixXd> llt_S(S);
+  if (llt_S.info() != Eigen::Success) {
+    // Fallback to full recomputation
+    compute_alpha();
+    return;
+  }
+  
+  Eigen::MatrixXd S_inv = llt_S.solve(Eigen::MatrixXd::Identity(m, m));
+  
+  // Update K_inv using block matrix formula
+  Eigen::MatrixXd K_inv_new(n + m, n + m);
+  K_inv_new.topLeftCorner(n, n) = K_inv_ + K_inv_k_star * S_inv * K_inv_k_star.transpose();
+  K_inv_new.topRightCorner(n, m) = -K_inv_k_star * S_inv;
+  K_inv_new.bottomLeftCorner(m, n) = -S_inv * K_inv_k_star.transpose();
+  K_inv_new.bottomRightCorner(m, m) = S_inv;
+  
+  K_inv_ = K_inv_new;
+  
+  // Update alpha
+  alpha_ = K_inv_ * y_train_;
+}
+
+void GaussianProcess::validate_new_data(const Eigen::MatrixXd& X_new, const Eigen::VectorXd& y_new) const {
+  if (X_new.rows() != y_new.size()) {
+    throw std::invalid_argument("X_new and y_new must have the same number of rows");
+  }
+  if (X_new.rows() == 0) {
+    throw std::invalid_argument("Cannot add empty data");
+  }
+  if (is_fitted_ && X_new.cols() != X_train_.cols()) {
+    throw std::invalid_argument("X_new must have same number of columns as training data");
+  }
 }
 
 void GaussianProcess::optimize_hyperparameters(const std::vector<std::vector<double>>& param_grid) {
