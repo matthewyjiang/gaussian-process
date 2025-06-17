@@ -25,6 +25,7 @@ set(TESTS
     "test_logarithmic_rbf:test_logarithmic_rbf"
     "test_gaussian_rbf:test_gaussian_rbf"
     "test_add_data:test_add_data"
+    "test_incremental_learning:test_incremental_learning"
 )
 
 
