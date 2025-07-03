@@ -51,6 +51,9 @@ public:
 
   KernelBase* kernel() const { return kernel_.get(); }
   bool is_fitted() const { return is_fitted_; }
+  
+  const Eigen::MatrixXd& getX() const { return X_train_; }
+  const Eigen::VectorXd& getY() const { return y_train_; }
 
   // Optimize hyperparameters (simple grid search)
   void optimize_hyperparameters(const std::vector<std::vector<double>>& param_grid);
