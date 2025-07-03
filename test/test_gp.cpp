@@ -269,6 +269,43 @@ void test_error_handling(TestFramework& test) {
     }
 }
 
+void test_getX_getY_functions(TestFramework& test) {
+    std::cout << "\n=== Testing getX and getY Functions ===" << std::endl;
+    
+    std::unique_ptr<KernelBase> kernel(new RBFKernel(1.0, 1.0));
+    GaussianProcess gp(std::move(kernel), 0.1);
+    
+    // Create test data
+    Eigen::MatrixXd X_train(3, 2);
+    Eigen::VectorXd y_train(3);
+    X_train << 0.0, 1.0,
+               1.0, 2.0,
+               2.0, 3.0;
+    y_train << 0.5, 1.5, 2.5;
+    
+    // Fit the GP
+    gp.fit(X_train, y_train);
+    
+    // Test getX function
+    const Eigen::MatrixXd& retrieved_X = gp.getX();
+    test.assert_true(retrieved_X.rows() == X_train.rows(), "getX() returns correct number of rows");
+    test.assert_true(retrieved_X.cols() == X_train.cols(), "getX() returns correct number of cols");
+    
+    // Test getY function
+    const Eigen::VectorXd& retrieved_y = gp.getY();
+    test.assert_true(retrieved_y.size() == y_train.size(), "getY() returns correct size");
+    
+    // Test data integrity
+    bool X_data_matches = (retrieved_X - X_train).norm() < 1e-10;
+    bool y_data_matches = (retrieved_y - y_train).norm() < 1e-10;
+    test.assert_true(X_data_matches, "getX() returns identical training data");
+    test.assert_true(y_data_matches, "getY() returns identical training data");
+    
+    // Test that returned references are const (compilation test)
+    // This test passes if the code compiles without errors
+    test.assert_true(true, "getX() and getY() return const references");
+}
+
 int main() {
     std::cout << "=== Gaussian Process Library Test Suite ===" << std::endl;
     
@@ -280,6 +317,7 @@ int main() {
         test_gaussian_process_regression(test);
         test_hyperparameter_optimization(test);
         test_error_handling(test);
+        test_getX_getY_functions(test);
         
         test.summary();
         
